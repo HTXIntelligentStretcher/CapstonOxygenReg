@@ -22,18 +22,6 @@
 #define TXD2 17
 ModbusRTU mb;
 
-bool cbWrite(Modbus::ResultCode event, uint16_t transactionId, void* data) {
-#ifdef ESP8266
-  Serial.printf_P("Request result: 0x%02X, Mem: %d\n", event, ESP.getFreeHeap());
-#elif ESP32
-  Serial.printf_P("Request result: 0x%02X, Mem: %d\n", event, ESP.getFreeHeap());
-#else
-  Serial.print("Request result: 0x");
-  Serial.print(event, HEX);
-#endif
-  return true;
-}
-
 void setup() {
   Serial.begin(9600);
  #if defined(ESP8266)
@@ -52,6 +40,22 @@ void setup() {
 
 bool coils[20];
 uint16_t values[5];
+
+
+bool cbWrite(Modbus::ResultCode event, uint16_t transactionId, void* data) {
+#ifdef ESP8266
+  Serial.printf_P("Request result: 0x%02X, Mem: %d\n", event, ESP.getFreeHeap());
+#elif ESP32
+  Serial.printf_P("Request result: 0x%02X, Mem: %d\n", event, ESP.getFreeHeap());
+  Serial.printf_P("Values: [Address: %d, 1: %d, 2: %d, 3: %d, 4: %d, 5: %d", 
+    values[0], values[1], values[2], values[3], values[4]);
+#else
+  Serial.print("Request result: 0x");
+  Serial.print(event, HEX);
+#endif
+  return true;
+}
+
 
 void loop() {
   if (!mb.slave()) {
