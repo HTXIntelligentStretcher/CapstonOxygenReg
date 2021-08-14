@@ -1,7 +1,6 @@
 #ifndef NETWORK_HPP 
 #define NETWORK_HPP
 
-#include <WiFi.h>
 #include <WiFiUdp.h>
 #include <WiFiClientSecure.h>
 
@@ -19,7 +18,7 @@ void reconnect();
 
 void connectToMQTT();
 
-void publishToMQTT(const char jsonPayload[]);
+void publishToMQTT(const char* topic, const char jsonPayload[]);
 
 }
 #endif

@@ -7,61 +7,87 @@
   by brainelectronics
   This code is licensed under the BSD New License. See LICENSE.txt for more info.
 */
+#include "oxygenReg.hpp"
+#include "network.hpp"
 
-#include <ModbusRTU.h>
-#if defined(ESP8266)
- #include <SoftwareSerial.h>
- // SoftwareSerial S(D1, D2, false, 256);
+#include <Arduino.h>
 
- // receivePin, transmitPin, inverse_logic, bufSize, isrBufSize
- // connect RX to D2 (GPIO4, Arduino pin 4), TX to D1 (GPIO5, Arduino pin 4)
- SoftwareSerial S(4, 5);
-#endif
-
+#ifdef ESP32
 #define RXD2 16
 #define TXD2 17
-ModbusRTU mb;
+#define MAX485_RE_NEG 4
+#else
+#define RXD2 5
+#define TXD2 4
+#define MAX485_RE_NEG D3
+#endif
 
-void setup() {
-  Serial.begin(9600);
- #if defined(ESP8266)
-  S.begin(9600, SWSERIAL_8N1);
-  mb.begin(&S);
- #elif defined(ESP32)
-  Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
-  mb.begin(&Serial2);
- #else
-  Serial1.begin(9600, SERIAL_8N1);
-  mb.begin(&Serial1);
-  mb.setBaudrate(9600);
- #endif
-  mb.master();
-}
+// #define HTX_TEST
 
-bool coils[20];
 uint16_t values[5];
 
+const char* OXYGEN_FORMAT = "{\"slpm\": %d}";
+const char* OXYGEN_TOPIC = "sensor/oxygen";
 
-bool cbWrite(Modbus::ResultCode event, uint16_t transactionId, void* data) {
+void testSetup();
+void testLoop();
+
+bool cbWrite(Modbus::ResultCode event, uint16_t transactionId,
+  void* data);
+
+
+void setup() {
+#ifdef HTX_TEST
+  testSetup();
+  return;
+#endif
+  // Serial.begin(9600);
+  // Serial.println("init");
+  net::connectToWifi();
+  net::connectToMQTT();
+  O2::initOxygenReg(RXD2, TXD2, MAX485_RE_NEG);  
+  // Serial.println("wf connect");
+}
+
+void loop() {
+#ifdef HTX_TEST
+  testLoop();
+  return;
+#endif
+  O2::readOxygenReg(values, cbWrite);
+  net::checkConnection();
+}
+
+bool cbWrite(Modbus::ResultCode event, uint16_t transactionId,
+  void* data) {
 #ifdef ESP8266
-  Serial.printf_P("Request result: 0x%02X, Mem: %d\n", event, ESP.getFreeHeap());
+  // Serial.printf_P("Request result: 0x%02X, Mem: %d\n", event, ESP.getFreeHeap());
 #elif ESP32
   Serial.printf_P("Request result: 0x%02X, Mem: %d\n", event, ESP.getFreeHeap());
-  Serial.printf_P("Values: [Address: %d, 1: %d, 2: %d, 3: %d, 4: %d, 5: %d", 
-    values[0], values[1], values[2], values[3], values[4]);
 #else
   Serial.print("Request result: 0x");
   Serial.print(event, HEX);
 #endif
+  // Serial.printf_P("Values: [Address: %d, 1: %d, 2: %d, 3: %d, 4: %d, 5: %d", 
+  //   values[0], values[1], values[2], values[3], values[4]);
+  char jsonObj[512];
+  sprintf(jsonObj, OXYGEN_FORMAT, values[2]);
+  net::publishToMQTT(OXYGEN_TOPIC, jsonObj);
   return true;
 }
 
+void testSetup() {
+  Serial.begin(9600);
+  net::connectToWifi();
+  net::connectToMQTT();
+  // Serial.println("wf connect");
+  values[2] = 0.1;
 
-void loop() {
-  if (!mb.slave()) {
-    // uint16_t readHreg(uint8_t slaveId, uint16_t offset, uint16_t* value, uint16_t numregs = 1, cbTransaction cb = nullptr);
-    mb.readHreg(255, 1, values, 5, cbWrite);
-  }
-  mb.task();
-  yield();
+}
+
+void testLoop() {
+  net::checkConnection();
+  char jsonObj[512];
+  sprintf(jsonObj, OXYGEN_FORMAT, values[2]);
+  net::publishToMQTT(OXYGEN_TOPIC, jsonObj);
 }

@@ -17,18 +17,17 @@ Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  
 // ADDING LIBRARIES
 
+#ifdef ESP32
 #include <WiFi.h>
+#else
+#include <ESP8266WiFi.h>
+#endif
 #include <WiFiUdp.h>
 #include <WiFiClientSecure.h>
 #include <NTPClient.h>
 
 #include <PubSubClient.h>
 #include "network.hpp"
-
-
-extern const char aws_root_ca[];
-extern const char thingCA[];
-extern const char thingKey[];
 
 namespace net {
 
@@ -40,30 +39,38 @@ char rcvdPayload[1024];
 const char* WIFI_SSID = "S02_WIFI";
 const char* WIFI_PASSWORD = "royisaboy";
 
+// const char* MQTT_SERVER = "192.168.201.74";
 const char* MQTT_SERVER = "192.168.4.1";
-
-char OXYGEN_TOPIC[] = "oxygen";
 
 WiFiUDP ntpUDP;
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-
-
-SemaphoreHandle_t subSemaphore = xSemaphoreCreateBinary();
-
 void connectToWifi() {
   // Starting WiFi conncetion
-  while (status != WL_CONNECTED)
+  // Serial.println("Connecting to wifi");
+#ifdef ESP32
+  while (status != WL_CONNECTED)  
   {
     // Serial.print("Attempting to connect to SSID: ");
     // Serial.println(WIFI_SSID);
     // Connect to WPA/WPA2 network. 
-    status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD, 7);
+    status = WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     // wait 3 seconds for connection:
     delay(CONNECT_WIFI_DELAY_MS);
   }
-  Serial.println("Connected to wifi");
+#else
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED)  
+  {
+    // Serial.print("Attempting to connect to SSID: ");
+    // Serial.println(WIFI_SSID);
+    // Connect to WPA/WPA2 network. 
+    // wait 3 seconds for connection:
+    delay(CONNECT_WIFI_DELAY_MS);
+  }
+#endif
+  // Serial.println("Connected to wifi");
 }
 
 void connectToMQTT() {
@@ -95,9 +102,9 @@ void reconnect() {
   }
 }
 // PUBLISH FUNCTION DEFINATION
-void publishToMQTT(const char jsonPayload[]) {
+void publishToMQTT(const char* topic, const char jsonPayload[]) {
 
-  boolean success = client.publish(OXYGEN_TOPIC, jsonPayload);
+  boolean success = client.publish(topic, jsonPayload);
   // Serial.print("Success");
   // Serial.println(success);
 }
@@ -105,7 +112,5 @@ void publishToMQTT(const char jsonPayload[]) {
 void subscribeToMQTT() {
 
 }
-
-
 
 }
